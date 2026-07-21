@@ -1,0 +1,15 @@
+name: PintlandAudio
+version: '${version}'
+main: gg.pintland.audio.PintlandAudioPlugin
+api-version: '1.21'
+author: Pintland
+description: Plays region-specific SoundCloud music for players via a relay + browser tab.
+depend:
+  - WorldGuard
+softdepend:
+  - WorldEdit
+commands:
+  pintlandaudio:
+    description: Pintland audio admin commands (reload, link).
+    usage: /pintlandaudio <reload|link>
+    aliases: [pa]

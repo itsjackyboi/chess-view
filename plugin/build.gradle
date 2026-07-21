@@ -1,0 +1,53 @@
+plugins {
+    id 'java'
+    // Shades the Java-WebSocket client (and only that) into the plugin jar.
+    id 'com.gradleup.shadow' version '8.3.5'
+}
+
+group = 'gg.pintland'
+version = '1.0.0'
+
+java {
+    // Paper 1.21 targets Java 21.
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }        // Paper API
+    maven { url = 'https://maven.enginehub.org/repo/' }                       // WorldGuard / WorldEdit
+}
+
+dependencies {
+    // Provided by the server at runtime — do NOT shade.
+    compileOnly 'io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT'
+    compileOnly 'com.sk89q.worldguard:worldguard-bukkit:7.0.9'
+    compileOnly 'com.sk89q.worldedit:worldedit-bukkit:7.2.15'
+
+    // Bundled into the jar (relay WebSocket client).
+    implementation 'org.java-websocket:Java-WebSocket:1.5.7'
+    implementation 'org.slf4j:slf4j-nop:2.0.13' // Java-WebSocket uses slf4j; nop keeps it quiet
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+shadowJar {
+    archiveClassifier.set('')
+    // Relocate the shaded lib so it can't clash with other plugins.
+    relocate 'org.java_websocket', 'gg.pintland.libs.java_websocket'
+    relocate 'org.slf4j', 'gg.pintland.libs.slf4j'
+}
+
+// `build` should produce the shaded jar.
+tasks.named('build') { dependsOn('shadowJar') }
+tasks.named('jar') { enabled = false }
+
+processResources {
+    def props = [version: version]
+    inputs.properties(props)
+    filesMatching('plugin.yml') {
+        expand(props)
+    }
+}

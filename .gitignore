@@ -33,6 +33,12 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Pintland audio system
+relay/.env
+plugin/.gradle/
+plugin/build/
+plugin/bin/
+
 # typescript
 *.tsbuildinfo
 

@@ -1,0 +1,28 @@
+# Pintland Audio plugin configuration.
+
+relay:
+  # WebSocket URL of the relay's /plugin endpoint.
+  # Use wss:// in production (behind the TLS reverse proxy).
+  url: "ws://localhost:8080/plugin"
+  # Shared secret sent in the x-plugin-secret header. Must match PLUGIN_SECRET
+  # in the relay's .env.
+  shared-secret: "change-me-plugin-secret"
+  # Seconds between reconnect attempts if the relay connection drops.
+  reconnect-seconds: 5
+
+# Base URL of the web client (served by the relay). The player's join link is
+# "<web-base-url>/?token=<signed-uuid>". Use https:// in production.
+web-base-url: "https://audio.example.com"
+
+# HMAC secret used to sign player UUIDs into client tokens. MUST match
+# TOKEN_SECRET in the relay's .env, or join links will fail to verify.
+token-secret: "change-me-token-secret"
+
+# Hysteresis tuning (prevents doorway flip-flopping between regions).
+hysteresis:
+  # A candidate region must hold for this many consecutive block-crossings
+  # before it fires...
+  consecutive-crossings: 2
+  # ...OR the player must be at least this many blocks past the last region's
+  # boundary. Either condition triggers the change.
+  blocks-past-boundary: 2
