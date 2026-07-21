@@ -38,8 +38,10 @@ public final class PintlandAudioPlugin extends JavaPlugin {
 
         connectRelay();
 
+        WorldGuardBridge worldGuard = new WorldGuardBridge(getLogger());
         RegionTracker tracker = new RegionTracker(
                 relay,
+                worldGuard,
                 regions,
                 defaultAudio,
                 getConfig().getInt("hysteresis.consecutive-crossings", 2),

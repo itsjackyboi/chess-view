@@ -47,7 +47,7 @@ public final class RelayClient extends WebSocketClient {
 
     /** Send a region_change for a player. Volume is 0-100. */
     public void sendRegionChange(String uuid, String region, String url, int volume) {
-        send(Json.object(
+        emit(Json.object(
                 "type", "region_change",
                 "player", uuid,
                 "region", region,
@@ -57,13 +57,13 @@ public final class RelayClient extends WebSocketClient {
 
     /** Send a player_quit so the relay can drop that player's state. */
     public void sendPlayerQuit(String uuid) {
-        send(Json.object("type", "player_quit", "player", uuid));
+        emit(Json.object("type", "player_quit", "player", uuid));
     }
 
-    private void send(String json) {
+    private void emit(String json) {
         try {
             if (isOpen()) {
-                super.send(json);
+                send(json);
             }
         } catch (Exception e) {
             logger.log(Level.FINE, "[PintlandAudio] Failed to send to relay", e);

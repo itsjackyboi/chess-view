@@ -1,32 +1,54 @@
+// Shadow is resolved from Maven Central (not the Gradle Plugin Portal) so the
+// build works in environments that can only reach Central.
+buildscript {
+    repositories { mavenCentral() }
+    dependencies { classpath 'com.gradleup.shadow:shadow-gradle-plugin:8.3.5' }
+}
+
 plugins {
     id 'java'
-    // Shades the Java-WebSocket client (and only that) into the plugin jar.
-    id 'com.gradleup.shadow' version '8.3.5'
 }
+apply plugin: 'com.gradleup.shadow'
 
 group = 'gg.pintland'
 version = '1.0.0'
 
 java {
-    // Paper 1.21 targets Java 21.
+    // Paper 1.21.x targets Java 21.
     toolchain.languageVersion = JavaLanguageVersion.of(21)
 }
 
 repositories {
     mavenCentral()
-    maven { url = 'https://repo.papermc.io/repository/maven-public/' }        // Paper API
-    maven { url = 'https://maven.enginehub.org/repo/' }                       // WorldGuard / WorldEdit
+}
+
+// Compile-only stubs of the Bukkit API surface we use. Kept in their own source
+// set so they land on the compile classpath but NEVER in the shaded jar — the
+// real Paper server provides these classes at runtime.
+sourceSets {
+    mcapi
 }
 
 dependencies {
-    // Provided by the server at runtime — do NOT shade.
-    compileOnly 'io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT'
-    compileOnly 'com.sk89q.worldguard:worldguard-bukkit:7.0.9'
-    compileOnly 'com.sk89q.worldedit:worldedit-bukkit:7.2.15'
+    // Bukkit API: provided by the server at runtime via the stub source set.
+    compileOnly sourceSets.mcapi.output
+    // Adventure (clickable chat): bundled by Paper at runtime; compile against Central.
+    compileOnly 'net.kyori:adventure-api:4.17.0'
+    // slf4j: provided by Paper at runtime (Java-WebSocket logs through it).
+    compileOnly 'org.slf4j:slf4j-api:2.0.13'
 
-    // Bundled into the jar (relay WebSocket client).
-    implementation 'org.java-websocket:Java-WebSocket:1.5.7'
-    implementation 'org.slf4j:slf4j-nop:2.0.13' // Java-WebSocket uses slf4j; nop keeps it quiet
+    // The stubs themselves reference Adventure's Component (Player#sendMessage).
+    mcapiCompileOnly 'net.kyori:adventure-api:4.17.0'
+
+    // The one library actually bundled into the jar (relocated below).
+    implementation('org.java-websocket:Java-WebSocket:1.5.7') {
+        exclude group: 'org.slf4j'
+    }
+}
+
+// Ensure the stubs compile before main.
+tasks.named('compileJava') {
+    dependsOn tasks.named('compileMcapiJava')
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -37,10 +59,9 @@ shadowJar {
     archiveClassifier.set('')
     // Relocate the shaded lib so it can't clash with other plugins.
     relocate 'org.java_websocket', 'gg.pintland.libs.java_websocket'
-    relocate 'org.slf4j', 'gg.pintland.libs.slf4j'
 }
 
-// `build` should produce the shaded jar.
+// `build` produces the shaded jar; disable the thin jar.
 tasks.named('build') { dependsOn('shadowJar') }
 tasks.named('jar') { enabled = false }
 

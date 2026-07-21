@@ -109,17 +109,33 @@ without a fresh link.
 
 ---
 
-## 3. Minecraft plugin (Paper 1.21, Java 21)
+## 3. Minecraft plugin (Paper 1.21.x incl. 1.21.11, Java 21)
 
 ```bash
 cd plugin
 ./gradlew shadowJar        # produces build/libs/pintland-audio-1.0.0.jar
+# (a system `gradle shadowJar` works too if the wrapper can't reach services.gradle.org)
 ```
 
-> Building requires access to the PaperMC (`repo.papermc.io`) and EngineHub
-> (`maven.enginehub.org`) Maven repositories for the `compileOnly` Paper/WorldGuard
-> APIs. Only `Java-WebSocket` is shaded into the jar; Paper and WorldGuard are provided
-> by the server at runtime.
+**Builds offline against Maven Central only** — no PaperMC or EngineHub repositories
+required. This is achieved by:
+
+- **Bukkit API** provided at runtime, compiled against a tiny private stub source set
+  (`src/mcapi/java`) that is *excluded from the jar* — the real Paper server supplies
+  these classes. (To build against the real Paper API instead, delete that source set
+  and add `compileOnly 'io.papermc.paper:paper-api:…'` from `repo.papermc.io`.)
+- **WorldGuard accessed by reflection** (`WorldGuardBridge`) — no compile dependency and
+  nothing shaded, exactly as the design requires. Resolves the highest-priority applicable
+  region; if WorldGuard is missing/incompatible it degrades to silence and logs once.
+- **Adventure** (the clickable chat link) compiled against Maven Central; Paper bundles it
+  at runtime. Using Adventure (rather than raw `tellraw` JSON) keeps the join message
+  correct across the 1.21.5+ text-component format change.
+- **Java-WebSocket** is the only bundled library (relocated to `gg.pintland.libs`); slf4j is
+  provided by Paper at runtime.
+
+The jar drops into `plugins/` unchanged and runs on Paper 1.21.x (verified: the shaded jar
+contains only `gg/pintland/**` + relocated Java-WebSocket, no `org/bukkit`, `net/kyori`, or
+`org/slf4j`).
 
 Drop the jar into `plugins/` alongside **WorldGuard** (and WorldEdit), start the server
 once to generate `plugins/PintlandAudio/config.yml` and `regions.yml`, then edit them.

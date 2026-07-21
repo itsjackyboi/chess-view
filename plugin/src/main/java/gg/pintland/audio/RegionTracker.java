@@ -1,11 +1,5 @@
 package gg.pintland.audio;
 
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
-import com.sk89q.worldguard.WorldGuard;
-import com.sk89q.worldguard.protection.ApplicableRegionSet;
-import com.sk89q.worldguard.protection.regions.ProtectedRegion;
-import com.sk89q.worldguard.protection.regions.RegionContainer;
-import com.sk89q.worldguard.protection.regions.RegionQuery;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -34,6 +28,7 @@ public final class RegionTracker implements Listener {
     }
 
     private final RelayClient relay;
+    private final WorldGuardBridge worldGuard;
     private final Map<String, RegionAudio> regions;
     private final RegionAudio defaultAudio;
     private final int consecutiveCrossings;
@@ -41,9 +36,10 @@ public final class RegionTracker implements Listener {
 
     private final Map<UUID, State> states = new HashMap<>();
 
-    public RegionTracker(RelayClient relay, Map<String, RegionAudio> regions, RegionAudio defaultAudio,
-                         int consecutiveCrossings, int blocksPastBoundary) {
+    public RegionTracker(RelayClient relay, WorldGuardBridge worldGuard, Map<String, RegionAudio> regions,
+                         RegionAudio defaultAudio, int consecutiveCrossings, int blocksPastBoundary) {
         this.relay = relay;
+        this.worldGuard = worldGuard;
         this.regions = regions;
         this.defaultAudio = defaultAudio;
         this.consecutiveCrossings = Math.max(1, consecutiveCrossings);
@@ -123,17 +119,7 @@ public final class RegionTracker implements Listener {
 
     /** Resolve the highest-priority applicable region that has an audio mapping. */
     private String resolveRegion(Player player, Location loc) {
-        RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-        RegionQuery query = container.createQuery();
-        ApplicableRegionSet set = query.getApplicableRegions(BukkitAdapter.adapt(loc));
-
-        ProtectedRegion best = null;
-        for (ProtectedRegion r : set) {
-            if (regions.containsKey(r.getId()) && (best == null || r.getPriority() > best.getPriority())) {
-                best = r;
-            }
-        }
-        return best == null ? "default" : best.getId();
+        return worldGuard.resolveRegion(loc, regions::containsKey);
     }
 
     private void fire(Player player, String regionKey) {
