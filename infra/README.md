@@ -108,12 +108,44 @@ independently. When that happens:
 3. Keep both tiers in one region. A second internet hop between them would come
    straight out of the latency budget.
 
+## Monitoring
+
+`/health` is a liveness check. `/metrics` is the one worth watching, and Caddy only
+serves it to private addresses — it describes usage patterns and how well the model
+is coping, which is not something to publish.
+
+The useful numbers are not the usual ones. Request counts say little here; these do:
+
+| Field | Why it matters |
+|---|---|
+| `detection.confidenceP05` | The weak tail. Falling means the model is meeting conditions it was not trained for — the expected failure for a synthetic-trained model. |
+| `detection.resyncRate` | Share of committed positions that came from resynchronising rather than a matched move. Rising means the tracker keeps losing the game, which users experience as the position going wrong. |
+| `detection.unclearObservations` | Growing without a matching rise in commits means detection is degrading rather than the board being busy. |
+| `sessions.refusedAtCapacity` | The engine pool is full. Add capacity. |
+| `frames.rateLimited` | Distinguishes a busy service from a misbehaving client. |
+
+## Rate limiting
+
+Sessions are anonymous, so the only thing between one client and the whole engine
+pool is the limiter. Two separate limits:
+
+- **Three concurrent sessions per source address.** An engine serves one session at a
+  time, so this is the per-client share of the pool. The address is an imperfect
+  identity — shared NAT groups strangers together — which is why the cap is a handful
+  rather than one.
+- **12 frames per second per session**, with a burst allowance. The client gates
+  itself to 5 fps, but a client is not something the server may rely on. Over-rate
+  frames are dropped rather than closing the connection: the usual cause is a
+  misbehaving motion gate, and killing the session would turn a minor client bug
+  into a broken app.
+
+Both are per-process and in-memory, matching how sessions are held. Across several
+containers each enforces its own share, so the effective limit scales with the fleet
+— fine while the fleet is small, worth a shared store before it is not.
+
 ## What is not here yet
 
-- **Metrics.** `/health` is a liveness check, not instrumentation. Session counts,
-  detection confidence distributions and engine queue depth all want exporting
-  before this carries real traffic.
-- **Rate limiting.** Sessions are anonymous, and nothing currently stops one client
-  opening enough of them to exhaust the pool.
 - **Backups.** Deliberately: nothing persists beyond a session, so there is nothing
   to back up.
+- **A real identity for rate limiting.** Source address is what anonymous sessions
+  allow. Anything better needs something the v1 scope explicitly excludes.

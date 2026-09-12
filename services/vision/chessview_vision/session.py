@@ -41,6 +41,7 @@ from chessview_protocol import (
 
 from chessview_vision.config import VisionConfig
 from chessview_vision.detector import Detection, Detector
+from chessview_vision.metrics import METRICS
 from chessview_vision.tracker import BoardTracker, Outcome
 
 log = logging.getLogger(__name__)
@@ -202,17 +203,23 @@ class Session:
             return
 
         self._frames_seen += 1
+        METRICS.frames_received += 1
         detection = await self._detector.detect(jpeg)
 
         if detection is None:
+            METRICS.frames_undecodable += 1
             await self._set_status(
                 SessionStatus.NO_BOARD, "point the camera at the board"
             )
             return
 
+        METRICS.record_confidence(detection.confidence)
         result = self._tracker.observe(detection.placement, detection.confidence)
 
         if result.outcome is Outcome.COMMITTED:
+            METRICS.positions_committed += 1
+            if result.resynced:
+                METRICS.positions_resynced += 1
             await self._set_status(SessionStatus.TRACKING)
             await self._emit_position(
                 PositionSource.DETECTOR,
@@ -223,8 +230,10 @@ class Session:
             )
             await self._analyse()
         elif result.outcome is Outcome.LOW_CONFIDENCE:
+            METRICS.observations_low_confidence += 1
             await self._set_status(SessionStatus.LOW_LIGHT, result.detail)
         elif result.outcome is Outcome.UNCLEAR:
+            METRICS.observations_unclear += 1
             await self._set_status(SessionStatus.UNCLEAR, result.detail)
         else:
             # UNCHANGED and PENDING are both "still tracking". Notably we do *not*
@@ -278,6 +287,7 @@ class Session:
             # from briefly showing an evaluation of the previous board.
             if ev.fen != self._tracker.fen:
                 return
+            METRICS.evaluations_sent += 1
             await self._send(ev)
 
         await self._engine.analyse(fen, on_eval)

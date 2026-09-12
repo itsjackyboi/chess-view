@@ -37,6 +37,8 @@ from chessview_vision.classifier import SquareClassifier
 from chessview_vision.cnn_detector import CnnDetector
 from chessview_vision.config import VisionConfig
 from chessview_vision.detector import Detector, StubDetector
+from chessview_vision.limits import ClientLimiter, FrameLimiter, LimitConfig
+from chessview_vision.metrics import METRICS
 from chessview_vision.registry import SessionRegistry
 from chessview_vision.session import Session
 
@@ -103,6 +105,7 @@ def create_app(
     vision_config: VisionConfig | None = None,
     detector_factory: DetectorFactory | None = None,
     pool: EnginePool | None = None,
+    limits: LimitConfig | None = None,
 ) -> FastAPI:
     """Build the ASGI app.
 
@@ -114,6 +117,8 @@ def create_app(
     detector_factory = detector_factory or _build_detector_factory(vision_config)
     pool = pool or EnginePool(engine_config or EngineConfig.from_env())
     registry = SessionRegistry(vision_config.session_ttl_seconds)
+    limit_config = limits or LimitConfig()
+    clients = ClientLimiter(limit_config)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -143,6 +148,22 @@ def create_app(
             "detector": "model" if vision_config.model else "stub",
         }
 
+    @app.get("/metrics")
+    async def metrics() -> dict:
+        """Counters that say whether the service is doing its job.
+
+        Request counts reveal very little here; detection confidence and the resync
+        rate are what show the model meeting conditions it was not trained for.
+        """
+        snapshot = METRICS.snapshot()
+        snapshot["limits"] = {
+            "activeClients": clients.active_clients,
+            "activeSessions": clients.active_sessions,
+            "sessionRejections": clients.rejections,
+        }
+        snapshot["pool"] = {"size": pool.size, "available": pool.available}
+        return snapshot
+
     @app.websocket("/v1/session")
     async def session_socket(websocket: WebSocket) -> None:
         await websocket.accept()
@@ -157,6 +178,26 @@ def create_app(
         resumed = registry.resume(hello.resume_session_id) if hello.resume_session_id else None
         session_id = hello.resume_session_id if resumed else uuid.uuid4().hex
 
+        # Sessions are anonymous, so the source address is the only client identity
+        # available. It is imperfect -- shared NAT groups strangers together -- which
+        # is why the cap is a handful of sessions rather than one.
+        client_key = websocket.client.host if websocket.client else "unknown"
+        if not clients.try_acquire(client_key, session_id):
+            METRICS.sessions_refused_rate_limit += 1
+            await send(
+                Error(
+                    code=ErrorCode.RATE_LIMITED,
+                    message="too many sessions open from this device",
+                    fatal=True,
+                )
+            )
+            await websocket.close(CLOSE_POLICY_VIOLATION)
+            return
+
+        METRICS.sessions_started += 1
+        if resumed is not None:
+            METRICS.sessions_resumed += 1
+
         try:
             async with pool.lease() as engine:
                 session = Session(
@@ -169,8 +210,9 @@ def create_app(
                 if resumed is not None:
                     session._tracker.set_position(resumed.fen)  # noqa: SLF001
                 await session.greet(resumed=resumed is not None)
-                await _pump(websocket, session, send)
+                await _pump(websocket, session, send, FrameLimiter(limit_config))
         except EngineUnavailable as exc:
+            METRICS.sessions_refused_capacity += 1
             log.warning("refusing session %s: %s", session_id, exc)
             with contextlib.suppress(RuntimeError):
                 await send(
@@ -181,6 +223,8 @@ def create_app(
                     )
                 )
                 await websocket.close(CLOSE_INTERNAL_ERROR)
+        finally:
+            clients.release(client_key, session_id)
 
     return app
 
@@ -230,7 +274,9 @@ async def _await_hello(websocket: WebSocket, send) -> Hello | None:
     return message
 
 
-async def _pump(websocket: WebSocket, session: Session, send) -> None:
+async def _pump(
+    websocket: WebSocket, session: Session, send, frames: FrameLimiter
+) -> None:
     """Dispatch inbound messages until the client goes away."""
     registry: SessionRegistry = websocket.app.state.registry
     try:
@@ -261,6 +307,15 @@ async def _pump(websocket: WebSocket, session: Session, send) -> None:
                         )
                     )
                     continue
+                # The client gates its own frame rate, but a client is not
+                # something the server may rely on. Over-rate frames are dropped
+                # silently rather than ending the session: the usual cause is a
+                # misbehaving motion gate, and killing the connection would turn a
+                # minor client bug into a broken app.
+                if not frames.allow():
+                    METRICS.frames_rate_limited += 1
+                    continue
+
                 try:
                     header, jpeg = decode_frame(payload)
                 except FrameDecodeError as exc:

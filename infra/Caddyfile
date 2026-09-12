@@ -7,8 +7,22 @@
 	encode zstd gzip
 
 	# Health is deliberately unauthenticated so an external monitor can reach it.
+	# It reports nothing sensitive: pool size, engine name, which detector is live.
 	handle /health {
 		reverse_proxy vision:8000
+	}
+
+	# Metrics are not public. They expose session counts and detection confidence
+	# distributions, which describe usage patterns and how well the model is
+	# coping -- useful to an operator, and to anyone probing for weak spots.
+	# Reachable from a private network or over the host's own interface only.
+	@metrics path /metrics
+	handle @metrics {
+		@allowed remote_ip 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.1/32 ::1
+		handle @allowed {
+			reverse_proxy vision:8000
+		}
+		respond "Not found" 404
 	}
 
 	handle /v1/session {
