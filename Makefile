@@ -4,7 +4,7 @@
 PY := .venv/bin/python
 PIP := .venv/bin/pip
 
-.PHONY: help setup protocol test test-protocol test-engine test-vision run-vision run-engine clean
+.PHONY: help setup protocol test test-protocol test-engine test-vision run-vision bench clean
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -37,8 +37,8 @@ test-vision:
 run-vision: ## Start the vision service (the client's WebSocket endpoint)
 	$(PY) -m uvicorn chessview_vision.app:app --host 0.0.0.0 --port 8000 --reload
 
-run-engine: ## Start the engine service standalone
-	$(PY) -m uvicorn chessview_engine.app:app --host 0.0.0.0 --port 8001 --reload
+bench: ## Measure engine latency against the architecture's targets
+	$(PY) services/engine/bench.py
 
 clean:
 	rm -rf .venv node_modules .pytest_cache

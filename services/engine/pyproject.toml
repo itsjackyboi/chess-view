@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chessview-engine"
+version = "0.1.0"
+description = "Stockfish engine service for ChessView"
+requires-python = ">=3.11"
+dependencies = ["chessview-protocol", "python-chess>=1.10", "pydantic>=2.7"]
+
+[tool.setuptools]
+packages = ["chessview_engine"]

@@ -124,3 +124,26 @@ toward an elevated angle during calibration.
 
 [wolflein]: https://arxiv.org/pdf/2104.14963v1
 [cvchess]: https://arxiv.org/pdf/2511.11522
+
+## Measured engine latency (M0)
+
+`make bench`, Stockfish 16, 2 threads, 128 MB hash, MultiPV 3, depth 20 / 1200 ms cap,
+15 positions across opening, middlegame and endgame:
+
+| | median | p95 | max |
+|---|---|---|---|
+| **First evaluation** | **8 ms** | **68 ms** | 68 ms |
+| Final evaluation | 1203 ms | 1205 ms | 1205 ms |
+| Final depth | 18 | — | 20 (min 16) |
+
+This is the progressive-evaluation argument in one table. Time-to-first-eval and
+time-to-final-eval differ by **two orders of magnitude**: blocking on final depth
+would spend the entire ~1 s budget in the engine alone, before any vision or network
+cost. Streaming instead puts an evaluation on screen in well under 100 ms and lets it
+sharpen to depth ~18 over the following second.
+
+The movetime cap is the binding constraint, not depth — which is the intended shape,
+since it bounds latency on exactly the complex positions where depth would run long.
+
+Measured on a shared CI container; a dedicated Ryzen host should reach a higher final
+depth within the same cap. Re-run on the deploy target before tuning `CHESSVIEW_ENGINE_DEPTH`.
