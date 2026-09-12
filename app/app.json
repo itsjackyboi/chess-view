@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "ChessView",
+    "slug": "chessview",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "chessview",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.chessview.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ChessView uses the camera to read the chess board in front of you and show live engine analysis."
+      }
+    },
+    "android": {
+      "package": "com.chessview.app",
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "plugins": [
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "ChessView uses the camera to read the chess board in front of you and show live engine analysis."
+        }
+      ],
+      ["react-native-reanimated/plugin"]
+    ],
+    "experiments": { "typedRoutes": false }
+  }
+}
