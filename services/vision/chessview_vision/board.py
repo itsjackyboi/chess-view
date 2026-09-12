@@ -145,14 +145,18 @@ def _find_by_pattern(grey: np.ndarray) -> np.ndarray | None:
 
 
 def _extrapolate_outer(grid: np.ndarray) -> np.ndarray:
-    """Extend a 7x7 interior-corner grid to the board's four outer corners."""
+    """Extend a 7x7 interior-corner grid to the board's four outer corners.
+
+    An 8x8 board has 9x9 grid lines, of which the 7x7 interior corners are lines 1
+    through 7. So the outermost interior corner sits a *full* square in from the
+    board edge, not half of one, and the span between opposite interior corners
+    covers six squares. One square is therefore that span divided by six.
+    """
     top_left, top_right = grid[0, 0], grid[0, -1]
     bottom_left, bottom_right = grid[-1, 0], grid[-1, -1]
 
-    # One grid step is 1/6 of the span between outermost interior corners; the board
-    # edge lies half a square further out, hence the 1/12 factors below.
     def extend(corner: np.ndarray, along: np.ndarray, down: np.ndarray) -> np.ndarray:
-        return corner + along / 12.0 + down / 12.0
+        return corner + along / 6.0 + down / 6.0
 
     horizontal = top_right - top_left
     vertical = bottom_left - top_left

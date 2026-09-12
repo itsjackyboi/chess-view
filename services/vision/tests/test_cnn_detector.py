@@ -189,3 +189,34 @@ def _expand(placement: str) -> list[str]:
         else:
             squares.append(char)
     return squares
+
+
+@requires_model
+class TestConfidenceGate:
+    async def test_a_misaligned_board_is_caught_by_low_confidence(
+        self, classifier: SquareClassifier
+    ):
+        """The safety net that makes an imperfect detector survivable.
+
+        A board rectified from corners half a square out produces crops with pieces
+        cut in half. The classifier will still name something for every square, so
+        the only thing standing between that and a confidently wrong position on
+        screen is the confidence gate.
+        """
+        rng = np.random.default_rng(8)
+        rendered = render_board(chess.Board().board_fen(), rng, perspective=False)
+
+        square = rendered.image.shape[0] / 8
+        shifted = rendered.corners + np.array([square * 0.5, square * 0.5], dtype=np.float32)
+        skewed = cv2.warpPerspective(
+            rendered.image, homography_for(shifted), (BOARD_PX, BOARD_PX)
+        )
+
+        detector = CnnDetector(classifier, expect_rectified=True)
+        detection = await detector.detect(_jpeg(skewed))
+
+        assert detection is not None
+        assert detection.confidence < 0.6, (
+            "a misaligned board must not be reported confidently -- the tracker's "
+            "min_confidence gate is what stops it reaching the user as analysis"
+        )

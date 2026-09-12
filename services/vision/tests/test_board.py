@@ -88,20 +88,23 @@ class TestDetection:
                 pass
         assert found >= 20, f"only located {found}/25 boards"
 
-    def test_detected_corners_land_within_about_a_square(self):
-        """Detection is assistive, and its accuracy reflects that.
+    def test_detected_corners_land_within_a_fraction_of_a_square(self):
+        """Measured median error is ~0.2 squares across both detection methods.
 
-        Measured median error is ~0.6 squares, which is too loose to classify
-        against directly -- misaligned crops cut pieces in half. The exact corners
-        come from the client's calibration instead, and detection only has to be
-        close enough to offer the user a starting guess to adjust.
+        Asserted on the median rather than a single sample, because the two methods
+        differ enormously: the pattern detector lands around 0.2 squares while the
+        contour fallback is nearer 2, which is far too loose to classify against.
+        That is survivable only because the confidence gate refuses to present a
+        position read from a badly aligned crop -- see
+        test_a_misaligned_board_is_caught_by_low_confidence in test_cnn_detector.py.
 
-        Asserted on the median over many boards rather than one sample, since the
-        contour fallback occasionally latches onto a board edge and does worse.
+        A regression here caught a real bug: the pattern detector extrapolates the
+        board edge from the 7x7 interior-corner grid, and extrapolating half a
+        square instead of a full one shifted every crop by half a square.
         """
         rng = np.random.default_rng(5)
         errors = []
-        for _ in range(30):
+        for _ in range(40):
             rendered = render_board(random_placement(rng), rng)
             try:
                 geometry = find_board(rendered.image)
@@ -111,8 +114,33 @@ class TestDetection:
             square_px = rendered.image.shape[0] / 8
             errors.append(np.linalg.norm(geometry.corners - truth, axis=1).max() / square_px)
 
-        assert len(errors) >= 20, "too few detections to judge accuracy"
-        assert float(np.median(errors)) < 1.0
+        assert len(errors) >= 30, "too few detections to judge accuracy"
+        assert float(np.median(errors)) < 0.5
+
+    def test_the_pattern_detector_is_accurate_when_it_fires(self):
+        """The fast path has to be genuinely accurate to be worth preferring.
+
+        An 8x8 board has 9x9 grid lines and the interior corners are lines 1-7, so
+        the outermost interior corner sits one full square in from the edge and the
+        span between opposite ones covers six squares. Getting that factor wrong is
+        invisible in aggregate and ruinous per square.
+        """
+        rng = np.random.default_rng(5)
+        errors = []
+        for _ in range(40):
+            rendered = render_board(random_placement(rng), rng)
+            try:
+                geometry = find_board(rendered.image)
+            except BoardNotFound:
+                continue
+            if geometry.source != "pattern":
+                continue
+            truth = order_corners(rendered.corners)
+            square_px = rendered.image.shape[0] / 8
+            errors.append(np.linalg.norm(geometry.corners - truth, axis=1).max() / square_px)
+
+        assert len(errors) >= 20, "the pattern detector fired too rarely to judge"
+        assert float(np.median(errors)) < 0.3
 
     def test_reports_no_board_rather_than_guessing(self):
         # A plain gradient contains no board; inventing corners here would send the
