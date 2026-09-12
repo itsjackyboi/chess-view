@@ -30,9 +30,9 @@ Two things remain before M0 can be called finished outright:
 ## M2 gate: passed on synthetic, unproven on real photos
 
 The gate was meant to decide whether M4 was a tuning exercise or a research project.
-On synthetic data the pipeline reaches **99.3% board-level accuracy with calibrated
-corners** and the confidence gate cleanly separates correct readings (0.916) from
-incorrect ones (0.429). Full figures in [vision.md](vision.md).
+On synthetic data the pipeline reaches **98.3% board-level accuracy with calibrated
+corners** and the confidence gate cleanly separates correct readings (0.914) from
+incorrect ones (0.407). Full figures in [vision.md](vision.md).
 
 That is a genuine held-out measurement and it says the *pipeline* is sound. It does
 not say the model will work on photographs of real chess sets, and it should never be

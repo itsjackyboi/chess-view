@@ -3,7 +3,7 @@
 # Two stages so the build toolchain does not ship. The runtime image carries
 # Python, OpenCV's runtime libraries, onnxruntime and a Stockfish binary -- and
 # deliberately not PyTorch, which is a training dependency and would add well over
-# a gigabyte to an image whose model is 33 KB.
+# a gigabyte to an image whose model is under a megabyte.
 
 FROM python:3.11-slim AS builder
 

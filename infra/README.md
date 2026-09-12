@@ -24,8 +24,8 @@ Two decisions are still open and both affect this:
 
 ## Build the model first
 
-The image bakes in `models/square-classifier.onnx`. It is committed to the repo, so
-a clean checkout builds without training. To retrain:
+The image bakes in `models/square-classifier.onnx` (826 KB). It is committed to the
+repo, so a clean checkout builds without training. To retrain:
 
 ```bash
 PYTHONPATH=services/vision .venv/bin/python services/vision/training/train.py \

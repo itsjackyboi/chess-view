@@ -5,7 +5,7 @@ on the camera feed — best move, evaluation, and top engine lines, updating wit
 about a second of a piece moving. No shutter button, no manual FEN entry.
 
 > **Status: working end to end, not yet shipped.** Camera → cloud → vision → engine →
-> overlay all runs, with a trained model doing the detection. It reaches **99.3%
+> overlay all runs, with a trained model doing the detection. It reaches **98.3%
 > board-level accuracy on synthetic boards** — which is a real held-out measurement
 > and *not* a prediction of how it will do on photographs of real chess sets. That
 > gap, a physical-device run, and an actual deployment are what remain. See
@@ -50,7 +50,7 @@ the vision pipeline and its measured accuracy are in [docs/vision.md](docs/visio
 | `services/vision/training/` | Synthetic data generation and model training (PyTorch, dev only) |
 | `services/engine/` | Stockfish process pool behind a UCI wrapper |
 | `packages/protocol/` | Wire protocol — pydantic models are the source of truth, TS types are generated |
-| `models/` | The exported ONNX classifier (~35 KB, committed) |
+| `models/` | The exported ONNX classifier (826 KB, committed) |
 | `infra/` | Dockerfile, compose stack, deployment guide |
 | `docs/` | Architecture, vision pipeline, roadmap |
 
@@ -82,11 +82,11 @@ PYTHONPATH=services/vision .venv/bin/python services/vision/demo.py board.jpg \
 1 R N B Q K . . R
   a b c d e f g h
 
-  confidence   0.901  (weakest square)
+  confidence   0.937  (weakest square)
   detection    46ms
 
   depth 16
-               +0.15   Ba4 Nf6 Nc3 Bb4 Nd5 Nxd5
+               +0.16   Ba4 b5 Bb3 Nf6 d4 exd4
 ```
 
 Omit `--corners` to let it find the board itself — and watch the confidence fall,

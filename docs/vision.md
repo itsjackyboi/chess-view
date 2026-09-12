@@ -23,32 +23,36 @@ to separate them.
 
 ## Measured accuracy
 
-`services/vision/evaluate.py`, 150 held-out synthetic boards, seeds disjoint from
-training and validation:
+`make evaluate` — 300 held-out synthetic boards, seeds disjoint from training and
+validation:
 
 | | calibrated corners | detected corners |
 |---|---|---|
-| Per-square accuracy | 99.990% | 95.32% |
-| **Board-level accuracy** | **99.33%** | **79.20%** |
-| Latency (median) | 49 ms | 43 ms |
-| Confidence when the board was right | 0.916 | 0.821 |
-| Confidence when the board was wrong | 0.429 | 0.266 |
+| Per-square accuracy | 99.969% | 96.43% |
+| **Board-level accuracy** | **98.33%** | **79.26%** |
+| Latency, warp + 64 crops + inference (median) | 18 ms | 16 ms |
+| Confidence when the board was right | 0.914 | 0.823 |
+| Confidence when the board was wrong | 0.407 | 0.277 |
+
+Per-class recall on validation is 99.5% or better for every one of the thirteen
+classes; the weakest are the knight, king and bishop, which share the most
+silhouette.
 
 Three things worth drawing out.
 
-**Calibration is worth 20 points of board accuracy.** 99.3% against 79.2% is the
+**Calibration is worth 19 points of board accuracy.** 98.3% against 79.3% is the
 entire argument for making the user drag four corners once. Automatic detection lands
 about 0.2 squares off with the pattern detector and nearer 2 with the contour
 fallback, and a crop shifted by a fraction of a square cuts pieces in half.
 
-**The confidence gate separates right from wrong.** 0.916 against 0.429 is a wide gap,
+**The confidence gate separates right from wrong.** 0.914 against 0.407 is a wide gap,
 and the 0.6 threshold sits cleanly in it. This is what makes "never show analysis for
 a position that might be wrong" an implementable rule rather than an aspiration — the
 system can actually tell the difference. Confidence is reported as the board's
 *weakest* square precisely so a single bad square cannot hide behind 63 good ones.
 
-**Per-square accuracy is a misleading number on its own.** 99.99% per square reads
-like a solved problem; it is 99.3% of boards. At 99.5% per square — which still sounds
+**Per-square accuracy is a misleading number on its own.** 99.97% per square reads
+like a solved problem; it is 98.3% of boards. At 99.5% per square — which still sounds
 excellent — barely seven boards in ten would be right. Always quote both.
 
 ## What these numbers are not
@@ -64,7 +68,7 @@ markedly worse on real images.
 
 For scale: published systems trained and tested on photographs report around
 [93% board-level accuracy][wolflein], and a 2025 system reports [29.9% of boards
-yielding a perfect FEN][cvchess]. Our 99.3% is not comparable to those, and quoting it
+yielding a perfect FEN][cvchess]. Our 98.3% is not comparable to those, and quoting it
 as though it were would be dishonest.
 
 Treat it as a regression check on the pipeline. Closing the gap needs photographs of
@@ -92,7 +96,7 @@ pixel-exact and optical-flow tracking drifts, so a model trained on perfect alig
 falls apart in the field.
 
 Inference is **onnxruntime only**. PyTorch is a training dependency and stays out of
-the deployed image, which would otherwise grow by over a gigabyte to serve a 35 KB
+the deployed image, which would otherwise grow by over a gigabyte to serve an 826 KB
 model.
 
 ## Failure modes and what happens
@@ -101,7 +105,7 @@ model.
 |---|---|
 | No board in frame | `no_board` — "point the camera at the board" |
 | Board found, pieces unreadable | Weakest-square confidence drops below 0.6, reported as `low_light` |
-| Misaligned corners | Same gate catches it; measured 0.43 confidence on a half-square shift |
+| Misaligned corners | Same gate catches it; measured 0.41 confidence on boards it got wrong |
 | Hand over the board | Every frame differs, so the stability gate never reaches agreement |
 | A move was missed | No legal move explains the board; after 8 stable frames it resynchronises at reduced confidence |
 | Board is not a legal position | Refused outright; the previous position stands |
