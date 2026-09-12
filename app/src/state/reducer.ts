@@ -34,6 +34,8 @@ export interface SessionState {
   readonly fen: string | null;
   readonly confidence: number;
   readonly ply: number;
+  /** Squares the detector was least sure about, for the correction editor. */
+  readonly lowConfidenceSquares: readonly number[];
   readonly history: readonly MoveRecord[];
   readonly evaluation: Eval | null;
   readonly paused: boolean;
@@ -48,6 +50,7 @@ export const INITIAL_STATE: SessionState = {
   fen: null,
   confidence: 0,
   ply: 0,
+  lowConfidenceSquares: [],
   history: [],
   evaluation: null,
   paused: false,
@@ -120,7 +123,9 @@ export function applyServerMessage(state: SessionState, message: ServerMessage):
         error: null,
         // A fresh session starts from nothing; a resumed one keeps what we had, and
         // the server re-sends the authoritative position immediately after.
-        ...(message.resumed ? {} : { history: [], evaluation: null, ply: 0, fen: null }),
+        ...(message.resumed
+          ? {}
+          : { history: [], evaluation: null, ply: 0, fen: null, lowConfidenceSquares: [] }),
       };
 
     case 'position':
@@ -161,6 +166,7 @@ function applyPosition(state: SessionState, message: Position): SessionState {
     fen: message.fen,
     confidence: message.confidence,
     ply: message.ply,
+    lowConfidenceSquares: message.lowConfidenceSquares ?? [],
     history,
     // The previous evaluation describes the previous position. Clearing it here is
     // what stops the overlay showing the old assessment under the new board while

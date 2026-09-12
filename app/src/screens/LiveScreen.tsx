@@ -14,6 +14,8 @@ import { StatusBanner } from '~/components/StatusBanner';
 import { APP_VERSION, PLATFORM, SERVICE_URL } from '~/config';
 import { SessionSheet } from '~/screens/SessionSheet';
 import { CalibrationOverlay } from '~/screens/CalibrationOverlay';
+import { CorrectionScreen } from '~/screens/CorrectionScreen';
+import { STARTING_FEN } from '~/chess/fen';
 import { useSession } from '~/state/store';
 import { color, font, radius, space } from '~/theme/tokens';
 
@@ -36,6 +38,7 @@ export function LiveScreen() {
 
   const [calibrated, setCalibrated] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [correcting, setCorrecting] = useState(false);
   const [foreground, setForeground] = useState(true);
 
   // Streaming stops entirely in the background. Camera frames are the expensive
@@ -60,7 +63,10 @@ export function LiveScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const streaming = calibrated && foreground && !store.paused;
+  // Streaming also stops while the correction editor is open: the user is telling
+  // us what is on the board, so continuing to overwrite it from the camera would
+  // fight them.
+  const streaming = calibrated && foreground && !store.paused && !correcting;
   const { frameProcessor } = useFrameStreamer(streaming);
 
   const onCalibrate = useCallback(() => {
@@ -140,9 +146,24 @@ export function LiveScreen() {
           engineName={store.engineName}
           paused={store.paused}
           onTogglePause={() => store.setPaused(!store.paused)}
-          onCorrect={() => setSheetOpen(false)}
+          onCorrect={() => {
+            setSheetOpen(false);
+            setCorrecting(true);
+          }}
           onEndSession={onEndSession}
           onClose={() => setSheetOpen(false)}
+        />
+      </Modal>
+
+      <Modal visible={correcting} animationType="slide" presentationStyle="pageSheet">
+        <CorrectionScreen
+          fen={store.fen ?? STARTING_FEN}
+          lowConfidenceSquares={store.lowConfidenceSquares}
+          onApply={(fen) => {
+            store.correctPosition(fen);
+            setCorrecting(false);
+          }}
+          onCancel={() => setCorrecting(false)}
         />
       </Modal>
     </View>

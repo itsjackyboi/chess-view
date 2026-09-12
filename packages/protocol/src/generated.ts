@@ -42,6 +42,7 @@ export type PositionSource = 'initial' | 'detector' | 'manual';
 export type Ply = number;
 export type Moveuci = string | null;
 export type Movesan = string | null;
+export type Lowconfidencesquares = number[];
 export type Ts1 = number;
 export type Type7 = 'eval';
 export type Fen2 = string;
@@ -164,6 +165,7 @@ export interface Position {
   ply: Ply;
   moveUci?: Moveuci;
   moveSan?: Movesan;
+  lowConfidenceSquares?: Lowconfidencesquares;
   ts: Ts1;
 }
 /**

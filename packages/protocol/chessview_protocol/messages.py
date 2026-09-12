@@ -192,6 +192,12 @@ class Position(_Base):
     ply: int
     move_uci: str | None = Field(default=None, alias="moveUci")
     move_san: str | None = Field(default=None, alias="moveSan")
+    # Board indices (0 = a8, 63 = h1) the detector was least sure about. The
+    # correction editor outlines these, so a user fixing a misread is pointed at the
+    # squares most likely to be wrong instead of hunting for it.
+    low_confidence_squares: list[int] = Field(
+        default_factory=list, alias="lowConfidenceSquares"
+    )
     ts: float
 
 

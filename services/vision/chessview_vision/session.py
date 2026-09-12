@@ -40,7 +40,7 @@ from chessview_protocol import (
 )
 
 from chessview_vision.config import VisionConfig
-from chessview_vision.detector import Detector
+from chessview_vision.detector import Detection, Detector
 from chessview_vision.tracker import BoardTracker, Outcome
 
 log = logging.getLogger(__name__)
@@ -219,6 +219,7 @@ class Session:
                 confidence=RESYNC_CONFIDENCE if result.resynced else detection.confidence,
                 move_uci=result.move.uci() if result.move else None,
                 move_san=result.san,
+                weak_squares=self._weak_squares(detection),
             )
             await self._analyse()
         elif result.outcome is Outcome.LOW_CONFIDENCE:
@@ -240,6 +241,7 @@ class Session:
         confidence: float,
         move_uci: str | None = None,
         move_san: str | None = None,
+        weak_squares: list[int] | None = None,
     ) -> None:
         await self._send(
             Position(
@@ -249,9 +251,22 @@ class Session:
                 ply=self._tracker.ply,
                 moveUci=move_uci,
                 moveSan=move_san,
+                lowConfidenceSquares=weak_squares or [],
                 ts=time.time(),
             )
         )
+
+    @staticmethod
+    def _weak_squares(detection: Detection, limit: int = 3) -> list[int]:
+        """The squares the detector was least sure about, worst first.
+
+        Only reported when they are actually shaky -- listing the three weakest
+        squares of a confident board would send the user chasing nothing.
+        """
+        if not detection.squares:
+            return []
+        ranked = sorted(detection.squares.items(), key=lambda item: item[1])
+        return [index for index, score in ranked[:limit] if score < 0.9]
 
     async def _analyse(self) -> None:
         """Start analysing the current position, abandoning any search in flight."""

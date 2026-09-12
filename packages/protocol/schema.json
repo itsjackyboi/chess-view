@@ -482,6 +482,13 @@
           "default": null,
           "title": "Movesan"
         },
+        "lowConfidenceSquares": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Lowconfidencesquares",
+          "type": "array"
+        },
         "ts": {
           "title": "Ts",
           "type": "number"
