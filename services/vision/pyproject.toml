@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chessview-vision"
+version = "0.1.0"
+description = "Vision and session service for ChessView"
+requires-python = ">=3.11"
+dependencies = [
+  "chessview-protocol",
+  "chessview-engine",
+  "python-chess>=1.10",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+]
+
+[tool.setuptools]
+packages = ["chessview_vision"]

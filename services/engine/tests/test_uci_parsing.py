@@ -128,3 +128,21 @@ def test_reportable_depth_flushes_all_multipv_lines_in_order():
     report = UciEngine._flush(depth, pending)
     assert report is not None
     assert [line.multipv for line in report.lines] == [1, 2]
+
+
+def test_a_depth_missing_its_best_line_is_discarded():
+    """Regression: a cut-off iteration can report PV 2 and 3 but not PV 1.
+
+    Stockfish emits PV 1 as `lowerbound` while it is still being resolved, and that
+    line is skipped as provisional. If the search is cut off at that moment the
+    depth group holds only PV 2 and PV 3 -- and since the client renders lines[0]
+    as the best move, sending it would show the second-best move as best.
+    """
+    from chessview_engine.uci import InfoLine
+
+    depth = MIN_REPORTED_DEPTH + 2
+    pending = {
+        2: InfoLine(depth=depth, multipv=2, score_cp=10, pv=["d2d4"]),
+        3: InfoLine(depth=depth, multipv=3, score_cp=5, pv=["c2c4"]),
+    }
+    assert UciEngine._flush(depth, pending) is None

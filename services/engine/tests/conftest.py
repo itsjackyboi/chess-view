@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-
 import pytest
 import pytest_asyncio
 
@@ -9,12 +7,6 @@ from chessview_engine.config import EngineConfig
 from chessview_engine.pool import EnginePool
 
 _config = EngineConfig.from_env()
-_have_engine = os.path.isfile(_config.binary) and os.access(_config.binary, os.X_OK)
-
-requires_engine = pytest.mark.skipif(
-    not _have_engine,
-    reason=f"no Stockfish binary at {_config.binary!r} (set CHESSVIEW_STOCKFISH)",
-)
 
 
 @pytest.fixture(scope="session")

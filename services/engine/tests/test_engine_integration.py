@@ -9,15 +9,21 @@ a real engine.
 from __future__ import annotations
 
 import asyncio
+import os
 from dataclasses import replace
 
 import pytest
 from chessview_protocol import Eval
 
+from chessview_engine.config import EngineConfig
 from chessview_engine.pool import EnginePool, EngineUnavailable
 from chessview_engine.uci import UciEngine
 
-from .conftest import requires_engine
+_binary = EngineConfig.from_env().binary
+requires_engine = pytest.mark.skipif(
+    not (os.path.isfile(_binary) and os.access(_binary, os.X_OK)),
+    reason=f"no Stockfish binary at {_binary!r} (set CHESSVIEW_STOCKFISH)",
+)
 
 pytestmark = [pytest.mark.asyncio, requires_engine]
 

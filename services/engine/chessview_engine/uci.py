@@ -253,7 +253,20 @@ class UciEngine:
 
     @staticmethod
     def _flush(depth: int | None, pending: dict[int, InfoLine]) -> DepthReport | None:
+        """Build a report for one depth, or None if it is not safe to present.
+
+        A group missing multipv 1 is discarded rather than sent. It happens when the
+        search is cut off mid-iteration and PV 1 is still bounded: the bounded line
+        is skipped as provisional, leaving PV 2 and PV 3 behind. Sending that group
+        would put the *second*-best move at the head of the list, and the client
+        renders lines[0] as the best move.
+
+        Dropping it is safe -- the previous depth's complete report already stands.
+        """
         if depth is None or depth < MIN_REPORTED_DEPTH or not pending:
+            return None
+        if 1 not in pending:
+            log.debug("discarding depth %d: no resolved multipv 1 line", depth)
             return None
         return DepthReport(depth=depth, lines=[pending[k] for k in sorted(pending)])
 
