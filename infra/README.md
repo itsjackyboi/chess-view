@@ -43,6 +43,12 @@ PYTHONPATH=services/vision .venv/bin/python services/vision/evaluate.py \
 > held-out measurement and it will not predict performance on photographs of real
 > boards. Treat it as a regression check on the pipeline, not as a product metric.
 
+> **The image has not been built yet.** The dependency set is verified — the three
+> packages install into a clean environment with only `uvicorn`,
+> `opencv-python-headless` and `onnxruntime`, the model loads, and PyTorch is
+> correctly absent. But no Docker daemon was available where this was written, so
+> the `docker build` itself is unexercised. Expect to fix something on the first run.
+
 ## Deploy
 
 ```bash
