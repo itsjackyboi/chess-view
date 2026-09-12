@@ -32,6 +32,7 @@ from chessview_vision.board import (
 )
 from chessview_vision.classifier import INPUT_PX, SquareClassifier, SquarePredictions
 from chessview_vision.detector import Detection
+from chessview_vision.imagesafety import UnsafeImage, check_safe_to_decode
 
 log = logging.getLogger(__name__)
 
@@ -102,6 +103,18 @@ class CnnDetector:
 
 
 def _decode(jpeg: bytes) -> np.ndarray | None:
+    """Decode a frame, refusing anything unsafe before allocating a pixel buffer.
+
+    The header check is not redundant with the protocol's byte-length cap: a
+    decompression bomb is small on the wire by construction, and the damage is done
+    during decode.
+    """
+    try:
+        check_safe_to_decode(jpeg)
+    except UnsafeImage as exc:
+        log.warning("refusing a %d-byte frame: %s", len(jpeg), exc)
+        return None
+
     buffer = np.frombuffer(jpeg, dtype=np.uint8)
     image = cv2.imdecode(buffer, cv2.IMREAD_COLOR)
     if image is None:

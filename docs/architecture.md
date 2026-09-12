@@ -116,6 +116,23 @@ toward an elevated angle during calibration.
   device identifier.
 - **Model-improvement capture is opt-in and off by default.**
 
+## Untrusted input
+
+The largest untrusted surface is the decode path: arbitrary bytes from the internet
+handed to OpenCV. Three guards, in order:
+
+1. **Byte-length cap** (256 KB) at the protocol layer, rejected before buffering.
+2. **Header dimension check** before decoding. The length cap does not cover this —
+   a decompression bomb is small on the wire by construction, and a 100-byte PNG
+   header can declare a 20000×20000 image that costs 1.2 GB to decode. Dimensions
+   are read from the JPEG or PNG header and oversized images are refused without
+   ever allocating the pixel buffer. Unrecognised formats are refused rather than
+   passed through.
+3. **Unprivileged container user**, since a decoder vulnerability is the residual
+   risk that the first two cannot address.
+
+Rate limiting covers the other exhaustion route — see `infra/README.md`.
+
 ## Open items
 
 - **Hosting region** — round-trip dominates the budget; needs to follow the users.
