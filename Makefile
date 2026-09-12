@@ -3,8 +3,11 @@
 
 PY := .venv/bin/python
 PIP := .venv/bin/pip
+# Modules under services/vision import `training.*`, which is not on the path of an
+# installed package.
+VISION := PYTHONPATH=services/vision
 
-.PHONY: help setup protocol test test-protocol test-engine test-vision run-vision bench clean
+.PHONY: help setup protocol protocol-check test test-protocol test-engine test-vision test-app typecheck run-vision bench evaluate train demo clean
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -34,11 +37,28 @@ test-engine:
 test-vision:
 	$(PY) -m pytest services/vision/tests -q
 
+test-app: ## Run the client's unit tests
+	npm test --workspace @chessview/app
+
+typecheck: ## Typecheck the client and the protocol package
+	npm run typecheck
+
 run-vision: ## Start the vision service (the client's WebSocket endpoint)
 	$(PY) -m uvicorn chessview_vision.app:app --host 0.0.0.0 --port 8000 --reload
 
 bench: ## Measure engine latency against the architecture's targets
 	$(PY) services/engine/bench.py
+
+evaluate: ## Measure vision accuracy, per-square and board-level
+	$(VISION) $(PY) services/vision/evaluate.py --model models/square-classifier.onnx
+
+train: ## Retrain the square classifier (~30 min on 4 CPU cores)
+	$(VISION) $(PY) services/vision/training/train.py \
+		--train-boards 1500 --epochs 14 --out models/square-classifier.onnx
+
+demo: ## Run the whole pipeline over one image: make demo IMAGE=board.jpg
+	@test -n "$(IMAGE)" || (echo "usage: make demo IMAGE=path/to/board.jpg" && exit 1)
+	$(VISION) $(PY) services/vision/demo.py "$(IMAGE)" $(ARGS)
 
 clean:
 	rm -rf .venv node_modules .pytest_cache

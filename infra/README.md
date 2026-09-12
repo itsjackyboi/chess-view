@@ -130,6 +130,24 @@ The useful numbers are not the usual ones. Request counts say little here; these
 | `sessions.refusedAtCapacity` | The engine pool is full. Add capacity. |
 | `frames.rateLimited` | Distinguishes a busy service from a misbehaving client. |
 
+## Deploying a new version
+
+The service drains on shutdown. On SIGTERM it stops accepting new sessions, reports
+`"status": "draining"` on `/health`, and gives live sessions up to ten seconds to
+finish before stopping the engines.
+
+`draining` is deliberately distinct from `at_capacity`: capacity is temporary and the
+instance still wants traffic afterwards, whereas a draining instance is going away
+and should leave the load balancer's rotation. Point your health check at that field.
+
+Without draining, a deploy tears engines out from under active sessions. The client
+sees an unexplained drop — indistinguishable from a network failure — so it
+reconnects, to a server that is still going down. Clients refused during a drain get
+a `fatal` error instead, which stops them retrying that instance.
+
+`--timeout-graceful-shutdown 20` in the Dockerfile gives uvicorn room to run the
+drain; keep any orchestrator's termination grace period above it.
+
 ## Rate limiting
 
 Sessions are anonymous, so the only thing between one client and the whole engine

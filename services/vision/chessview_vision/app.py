@@ -11,6 +11,7 @@ and no reconnect cost per frame.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import uuid
@@ -48,6 +49,56 @@ log = logging.getLogger(__name__)
 # standard fit for "your client is too old to talk to this server".
 CLOSE_POLICY_VIOLATION = 1008
 CLOSE_INTERNAL_ERROR = 1011
+# 1001 "going away" is what a client should see on a planned shutdown, as distinct
+# from an error -- it means "this was deliberate, come back".
+CLOSE_GOING_AWAY = 1001
+
+# How long a shutdown waits for live sessions before stopping the engines anyway.
+# Long enough for a client to receive the notice and close cleanly, short enough
+# that a deploy is not held up by one stuck connection.
+DRAIN_TIMEOUT_SECONDS = 10.0
+
+
+class Draining:
+    """Tracks shutdown state and how many sessions are still live."""
+
+    def __init__(self) -> None:
+        self._draining = False
+        self._sessions = 0
+        self._empty = asyncio.Event()
+        self._empty.set()
+
+    @property
+    def is_draining(self) -> bool:
+        return self._draining
+
+    @property
+    def live_sessions(self) -> int:
+        return self._sessions
+
+    def begin(self) -> None:
+        self._draining = True
+
+    def enter(self) -> None:
+        self._sessions += 1
+        self._empty.clear()
+
+    def leave(self) -> None:
+        self._sessions = max(0, self._sessions - 1)
+        if self._sessions == 0:
+            self._empty.set()
+
+    async def wait_for_sessions(self, *, timeout: float) -> bool:
+        """Wait for live sessions to finish. False if the timeout won."""
+        if self._sessions == 0:
+            return True
+        log.info("draining: waiting for %d live session(s)", self._sessions)
+        try:
+            await asyncio.wait_for(self._empty.wait(), timeout=timeout)
+            return True
+        except asyncio.TimeoutError:
+            log.warning("drain timed out with %d session(s) still open", self._sessions)
+            return False
 
 DetectorFactory = Callable[[], Detector]
 
@@ -119,6 +170,9 @@ def create_app(
     registry = SessionRegistry(vision_config.session_ttl_seconds)
     limit_config = limits or LimitConfig()
     clients = ClientLimiter(limit_config)
+    # Flipped on shutdown so in-flight sessions can be told what is happening
+    # instead of having the socket vanish under them.
+    draining = Draining()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -129,6 +183,13 @@ def create_app(
         try:
             yield
         finally:
+            # Refuse new sessions first, then give the live ones a moment to be told
+            # the service is going away. Without this a deploy tears engines out from
+            # under active sessions, and the client sees an unexplained drop that
+            # looks identical to a network failure -- so it reconnects, to a server
+            # that is still going down.
+            draining.begin()
+            await draining.wait_for_sessions(timeout=DRAIN_TIMEOUT_SECONDS)
             await pool.stop()
 
     app = FastAPI(title="ChessView vision service", lifespan=lifespan)
@@ -138,7 +199,7 @@ def create_app(
     @app.get("/health")
     async def health() -> dict:
         return {
-            "status": "ok" if pool.available > 0 else "at_capacity",
+            "status": _health_status(draining, pool),
             "engine": pool.engine_name,
             "pool": {"size": pool.size, "available": pool.available},
             "suspendedSessions": len(registry),
@@ -171,6 +232,19 @@ def create_app(
         async def send(message: BaseModel) -> None:
             await websocket.send_text(dump(message))
 
+        if draining.is_draining:
+            # Fatal, so the client stops retrying this instance and its load
+            # balancer sends the next attempt somewhere that can serve it.
+            await send(
+                Error(
+                    code=ErrorCode.ENGINE_UNAVAILABLE,
+                    message="this server is shutting down; reconnect shortly",
+                    fatal=True,
+                )
+            )
+            await websocket.close(CLOSE_GOING_AWAY)
+            return
+
         hello = await _await_hello(websocket, send)
         if hello is None:
             return
@@ -198,6 +272,7 @@ def create_app(
         if resumed is not None:
             METRICS.sessions_resumed += 1
 
+        draining.enter()
         try:
             async with pool.lease() as engine:
                 session = Session(
@@ -225,8 +300,21 @@ def create_app(
                 await websocket.close(CLOSE_INTERNAL_ERROR)
         finally:
             clients.release(client_key, session_id)
+            draining.leave()
 
     return app
+
+
+def _health_status(draining: "Draining", pool: EnginePool) -> str:
+    """What a load balancer should do with this instance.
+
+    `draining` is distinct from `at_capacity`: capacity is temporary and the
+    instance still wants traffic afterwards, whereas a draining instance is going
+    away and should be taken out of rotation.
+    """
+    if draining.is_draining:
+        return "draining"
+    return "ok" if pool.available > 0 else "at_capacity"
 
 
 async def _await_hello(websocket: WebSocket, send) -> Hello | None:
