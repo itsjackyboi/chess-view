@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 
 def _env_int(name: str, default: int) -> int:
@@ -40,6 +41,21 @@ class VisionConfig:
     # abandoned sessions release their engine lease.
     session_ttl_seconds: int = 120
 
+    # Path to the ONNX square classifier. When absent the service falls back to the
+    # stub detector and says so loudly at startup, rather than appearing to work
+    # while reporting scripted positions.
+    model_path: str = ""
+
+    # Whether the client sends an already-rectified board crop. True is the target
+    # design (see docs/architecture.md); False makes the server localise the board
+    # itself, which works but is less accurate and sends whole frames.
+    expect_rectified: bool = False
+
+    @property
+    def model(self) -> Path | None:
+        path = Path(self.model_path) if self.model_path else None
+        return path if path and path.is_file() else None
+
     @classmethod
     def from_env(cls) -> "VisionConfig":
         return cls(
@@ -47,4 +63,6 @@ class VisionConfig:
             min_confidence=_env_float("CHESSVIEW_MIN_CONFIDENCE", 0.6),
             resync_frames=_env_int("CHESSVIEW_RESYNC_FRAMES", 8),
             session_ttl_seconds=_env_int("CHESSVIEW_SESSION_TTL", 120),
+            model_path=os.environ.get("CHESSVIEW_MODEL", ""),
+            expect_rectified=os.environ.get("CHESSVIEW_EXPECT_RECTIFIED", "0") == "1",
         )

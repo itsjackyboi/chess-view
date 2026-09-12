@@ -7,6 +7,7 @@ import {
   useCameraPermission,
 } from 'react-native-vision-camera';
 
+import type { Point } from '~/camera/homography';
 import { useFrameStreamer } from '~/camera/useFrameStreamer';
 import { AnalysisPanel } from '~/components/AnalysisPanel';
 import { EvaluationBar } from '~/components/EvaluationBar';
@@ -18,15 +19,6 @@ import { CorrectionScreen } from '~/screens/CorrectionScreen';
 import { STARTING_FEN } from '~/chess/fen';
 import { useSession } from '~/state/store';
 import { color, font, radius, space } from '~/theme/tokens';
-
-/** The frame corners handed to the server at calibration. Fixed for M0; M3
- *  replaces these with the corners the user actually drags. */
-const FULL_FRAME_CORNERS = [
-  { x: 0, y: 0 },
-  { x: 1, y: 0 },
-  { x: 1, y: 1 },
-  { x: 0, y: 1 },
-];
 
 export function LiveScreen() {
   const insets = useSafeAreaInsets();
@@ -69,10 +61,13 @@ export function LiveScreen() {
   const streaming = calibrated && foreground && !store.paused && !correcting;
   const { frameProcessor } = useFrameStreamer(streaming);
 
-  const onCalibrate = useCallback(() => {
-    store.calibrate(FULL_FRAME_CORNERS);
-    setCalibrated(true);
-  }, [store]);
+  const onCalibrate = useCallback(
+    (corners: Point[]) => {
+      store.calibrate(corners);
+      setCalibrated(true);
+    },
+    [store],
+  );
 
   const onEndSession = useCallback(() => {
     store.stop();

@@ -33,6 +33,8 @@ from chessview_protocol import (
     dump,
     parse_client_message,
 )
+from chessview_vision.classifier import SquareClassifier
+from chessview_vision.cnn_detector import CnnDetector
 from chessview_vision.config import VisionConfig
 from chessview_vision.detector import Detector, StubDetector
 from chessview_vision.registry import SessionRegistry
@@ -48,11 +50,13 @@ CLOSE_INTERNAL_ERROR = 1011
 DetectorFactory = Callable[[], Detector]
 
 
-def _default_detector() -> Detector:
-    """The M0 stub: replays a scripted game, ignoring the image.
+def _stub_detector() -> Detector:
+    """Replays a scripted game, ignoring the image.
 
-    Replaced by the real model at M2. Until then it is what makes the whole pipeline
-    -- camera, transport, tracking, engine, overlay -- provable end to end.
+    Used when no model is configured. It keeps the pipeline demonstrable and the
+    transport tests deterministic, but it reports positions that have nothing to do
+    with what the camera sees -- so the service says so at startup rather than
+    letting it pass for working detection.
     """
     return StubDetector.from_moves(
         ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "Nf6", "O-O", "Be7"],
@@ -61,11 +65,43 @@ def _default_detector() -> Detector:
     )
 
 
+def _build_detector_factory(config: VisionConfig) -> DetectorFactory:
+    """Choose the real detector when a model is available, else the stub.
+
+    The classifier is loaded once and shared: an onnxruntime session is thread-safe
+    for inference and costs real memory, so giving every session its own would waste
+    both. The per-session state that does differ -- board geometry -- lives on the
+    CnnDetector wrapper, which is cheap.
+    """
+    if config.model is None:
+        if config.model_path:
+            log.error(
+                "CHESSVIEW_MODEL is set to %r but no file is there; "
+                "falling back to the STUB detector, which reports scripted "
+                "positions unrelated to the camera",
+                config.model_path,
+            )
+        else:
+            log.warning(
+                "no CHESSVIEW_MODEL configured; using the STUB detector. "
+                "Reported positions are scripted, not detected."
+            )
+        return _stub_detector
+
+    classifier = SquareClassifier(config.model)
+    log.info("using the trained square classifier at %s", config.model)
+
+    def factory() -> Detector:
+        return CnnDetector(classifier, expect_rectified=config.expect_rectified)
+
+    return factory
+
+
 def create_app(
     *,
     engine_config: EngineConfig | None = None,
     vision_config: VisionConfig | None = None,
-    detector_factory: DetectorFactory = _default_detector,
+    detector_factory: DetectorFactory | None = None,
     pool: EnginePool | None = None,
 ) -> FastAPI:
     """Build the ASGI app.
@@ -75,6 +111,7 @@ def create_app(
     binary or a vision model.
     """
     vision_config = vision_config or VisionConfig.from_env()
+    detector_factory = detector_factory or _build_detector_factory(vision_config)
     pool = pool or EnginePool(engine_config or EngineConfig.from_env())
     registry = SessionRegistry(vision_config.session_ttl_seconds)
 
@@ -101,6 +138,9 @@ def create_app(
             "pool": {"size": pool.size, "available": pool.available},
             "suspendedSessions": len(registry),
             "protocolVersion": PROTOCOL_VERSION,
+            # Surfaced so a deploy running on the stub is obvious from monitoring
+            # rather than discovered by a confused user.
+            "detector": "model" if vision_config.model else "stub",
         }
 
     @app.websocket("/v1/session")

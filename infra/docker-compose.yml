@@ -1,0 +1,51 @@
+# Launch stack: the vision service behind Caddy for automatic TLS.
+#
+# Both services run on one host to start with. The engine pool is a module boundary
+# inside the vision service rather than a separate container -- splitting it becomes
+# worthwhile when the engine tier needs to scale independently, and the code is
+# structured so that is a deployment change rather than a rewrite.
+
+services:
+  vision:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    restart: unless-stopped
+    environment:
+      # Sized for an 8-core host: pool_size * threads should land near the core
+      # count. Oversubscribing makes every session slower rather than serving more.
+      CHESSVIEW_ENGINE_POOL_SIZE: "4"
+      CHESSVIEW_ENGINE_THREADS: "2"
+      CHESSVIEW_ENGINE_HASH_MB: "256"
+      CHESSVIEW_ENGINE_MULTIPV: "3"
+      CHESSVIEW_ENGINE_DEPTH: "20"
+      CHESSVIEW_ENGINE_MOVETIME_MS: "1200"
+      CHESSVIEW_STABILITY_FRAMES: "3"
+      CHESSVIEW_MIN_CONFIDENCE: "0.6"
+      CHESSVIEW_SESSION_TTL: "120"
+    expose:
+      - "8000"
+    # Stockfish is compute-bound and will take everything it is given. Capping
+    # leaves headroom for the reverse proxy and the OS.
+    deploy:
+      resources:
+        limits:
+          cpus: "7.0"
+          memory: 6G
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - vision
+
+volumes:
+  caddy_data:
+  caddy_config:

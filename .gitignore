@@ -20,9 +20,11 @@ app/android/
 *.p12
 *.mobileprovision
 
-# Models and datasets are large and versioned out of band (see docs/vision.md)
-models/*.onnx
+# Training checkpoints and datasets are large and regenerable. The exported ONNX
+# classifier is ~35 KB and is committed, so a clean checkout deploys without
+# needing to train first.
 models/*.pt
+models/*.ckpt
 data/
 
 # Local config and secrets

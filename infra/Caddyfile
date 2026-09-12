@@ -1,0 +1,37 @@
+# Caddy obtains and renews TLS certificates automatically, which matters here
+# because the client connects over wss:// and mobile platforms reject anything else.
+#
+# Set CHESSVIEW_DOMAIN in the environment before `docker compose up`.
+
+{$CHESSVIEW_DOMAIN:localhost} {
+	encode zstd gzip
+
+	# Health is deliberately unauthenticated so an external monitor can reach it.
+	handle /health {
+		reverse_proxy vision:8000
+	}
+
+	handle /v1/session {
+		reverse_proxy vision:8000 {
+			# Sessions are long-lived and mostly idle between moves, so the
+			# read timeout has to exceed the client's keepalive interval by a
+			# wide margin or the proxy will cut healthy connections.
+			transport http {
+				read_timeout 300s
+				write_timeout 300s
+			}
+		}
+	}
+
+	# Nothing else is served. The API surface is one WebSocket and one health
+	# endpoint; anything else reaching the app is noise or probing.
+	handle {
+		respond "Not found" 404
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+}
