@@ -1,0 +1,34 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+*.tsbuildinfo
+
+# Expo / React Native
+app/.expo/
+app/dist/
+app/ios/
+app/android/
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+
+# Models and datasets are large and versioned out of band (see docs/vision.md)
+models/*.onnx
+models/*.pt
+data/
+
+# Local config and secrets
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store

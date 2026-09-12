@@ -1,0 +1,14 @@
+{
+  "name": "chessview",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Real-time AI chess vision and analysis",
+  "workspaces": ["packages/*", "app"],
+  "scripts": {
+    "protocol:generate": "npm run generate --workspace @chessview/protocol",
+    "protocol:check": "npm run check --workspace @chessview/protocol",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "engines": { "node": ">=20" }
+}

@@ -1,0 +1,646 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ChessViewProtocol",
+  "description": "Generated from chessview_protocol.messages (v1). Do not edit by hand.",
+  "type": "object",
+  "properties": {
+    "ClientMessage": {
+      "$ref": "#/definitions/ClientMessage"
+    },
+    "ServerMessage": {
+      "$ref": "#/definitions/ServerMessage"
+    },
+    "FrameHeader": {
+      "$ref": "#/definitions/FrameHeader"
+    }
+  },
+  "required": [
+    "ClientMessage",
+    "ServerMessage",
+    "FrameHeader"
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "Calibrate": {
+      "additionalProperties": false,
+      "description": "Lock the board geometry and seed the starting position.\n\n``corners`` are the four board corners in the client's *rectified* frame of\nreference, clockwise from the corner nearest the user. The client owns the\nhomography (it runs at camera frame rate on-device); the server records the\ncorners only for diagnostics and for redrawing the guide on resume.",
+      "properties": {
+        "type": {
+          "const": "calibrate",
+          "default": "calibrate",
+          "title": "Type",
+          "type": "string"
+        },
+        "corners": {
+          "items": {
+            "$ref": "#/definitions/Corner"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Corners",
+          "type": "array"
+        },
+        "orientation": {
+          "$ref": "#/definitions/Orientation"
+        },
+        "startFen": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Startfen"
+        }
+      },
+      "required": [
+        "corners",
+        "orientation"
+      ],
+      "title": "Calibrate",
+      "type": "object"
+    },
+    "ClientInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "platform": {
+          "enum": [
+            "ios",
+            "android",
+            "test"
+          ],
+          "title": "Platform",
+          "type": "string"
+        },
+        "appVersion": {
+          "title": "Appversion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "platform",
+        "appVersion"
+      ],
+      "title": "ClientInfo",
+      "type": "object"
+    },
+    "Corner": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Corner",
+      "type": "object"
+    },
+    "Hello": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "hello",
+          "default": "hello",
+          "title": "Type",
+          "type": "string"
+        },
+        "protocolVersion": {
+          "title": "Protocolversion",
+          "type": "integer"
+        },
+        "client": {
+          "$ref": "#/definitions/ClientInfo"
+        },
+        "resumeSessionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resumesessionid"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "client"
+      ],
+      "title": "Hello",
+      "type": "object"
+    },
+    "Orientation": {
+      "enum": [
+        "white_bottom",
+        "black_bottom"
+      ],
+      "title": "Orientation",
+      "type": "string"
+    },
+    "OverrideFen": {
+      "additionalProperties": false,
+      "description": "A manual correction from the 2D board editor.\n\nRespected as authoritative until the detector observes a further change, so a\nuser who fixes a misread piece does not have it immediately overwritten.",
+      "properties": {
+        "type": {
+          "const": "overrideFen",
+          "default": "overrideFen",
+          "title": "Type",
+          "type": "string"
+        },
+        "fen": {
+          "title": "Fen",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fen"
+      ],
+      "title": "OverrideFen",
+      "type": "object"
+    },
+    "Pause": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "pause",
+          "default": "pause",
+          "title": "Type",
+          "type": "string"
+        },
+        "paused": {
+          "title": "Paused",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "paused"
+      ],
+      "title": "Pause",
+      "type": "object"
+    },
+    "Ping": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "ping",
+          "default": "ping",
+          "title": "Type",
+          "type": "string"
+        },
+        "ts": {
+          "title": "Ts",
+          "type": "number"
+        }
+      },
+      "required": [
+        "ts"
+      ],
+      "title": "Ping",
+      "type": "object"
+    },
+    "ClientMessage": {
+      "discriminator": {
+        "mapping": {
+          "calibrate": "#/definitions/Calibrate",
+          "hello": "#/definitions/Hello",
+          "overrideFen": "#/definitions/OverrideFen",
+          "pause": "#/definitions/Pause",
+          "ping": "#/definitions/Ping"
+        },
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/Hello"
+        },
+        {
+          "$ref": "#/definitions/Calibrate"
+        },
+        {
+          "$ref": "#/definitions/OverrideFen"
+        },
+        {
+          "$ref": "#/definitions/Pause"
+        },
+        {
+          "$ref": "#/definitions/Ping"
+        }
+      ]
+    },
+    "EngineInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "multipv": {
+          "title": "Multipv",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "multipv"
+      ],
+      "title": "EngineInfo",
+      "type": "object"
+    },
+    "Error": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "error",
+          "default": "error",
+          "title": "Type",
+          "type": "string"
+        },
+        "code": {
+          "$ref": "#/definitions/ErrorCode"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "fatal": {
+          "default": false,
+          "title": "Fatal",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "Error",
+      "type": "object"
+    },
+    "ErrorCode": {
+      "enum": [
+        "protocol_version_mismatch",
+        "bad_message",
+        "frame_too_large",
+        "not_calibrated",
+        "illegal_position",
+        "engine_unavailable",
+        "session_not_found",
+        "rate_limited",
+        "internal"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
+    },
+    "Eval": {
+      "additionalProperties": false,
+      "description": "A progressive evaluation update.\n\nSeveral of these arrive per position, at increasing depth. ``final`` marks the\nlast one. Carrying ``fen`` lets the client discard updates that belong to a\nposition it has already moved past.",
+      "properties": {
+        "type": {
+          "const": "eval",
+          "default": "eval",
+          "title": "Type",
+          "type": "string"
+        },
+        "fen": {
+          "title": "Fen",
+          "type": "string"
+        },
+        "depth": {
+          "title": "Depth",
+          "type": "integer"
+        },
+        "final": {
+          "title": "Final",
+          "type": "boolean"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/definitions/EvalLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "ts": {
+          "title": "Ts",
+          "type": "number"
+        }
+      },
+      "required": [
+        "fen",
+        "depth",
+        "final",
+        "lines",
+        "ts"
+      ],
+      "title": "Eval",
+      "type": "object"
+    },
+    "EvalLine": {
+      "additionalProperties": false,
+      "description": "One MultiPV line.\n\nExactly one of ``score_cp``/``score_mate`` is set. Both are normalised to\n**white's point of view** before leaving the server: Stockfish reports from the\nside to move, which would make the evaluation bar flip on every move.",
+      "properties": {
+        "multipv": {
+          "title": "Multipv",
+          "type": "integer"
+        },
+        "scoreCp": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scorecp"
+        },
+        "scoreMate": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scoremate"
+        },
+        "pv": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pv",
+          "type": "array"
+        },
+        "san": {
+          "items": {
+            "type": "string"
+          },
+          "title": "San",
+          "type": "array"
+        }
+      },
+      "required": [
+        "multipv",
+        "pv"
+      ],
+      "title": "EvalLine",
+      "type": "object"
+    },
+    "Pong": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "pong",
+          "default": "pong",
+          "title": "Type",
+          "type": "string"
+        },
+        "ts": {
+          "title": "Ts",
+          "type": "number"
+        },
+        "serverTs": {
+          "title": "Serverts",
+          "type": "number"
+        }
+      },
+      "required": [
+        "ts",
+        "serverTs"
+      ],
+      "title": "Pong",
+      "type": "object"
+    },
+    "Position": {
+      "additionalProperties": false,
+      "description": "A committed position. Only ever sent when the position actually changed.\n\nThe server debounces and applies a stability check before committing, so the\nclient can treat every ``Position`` as a real move rather than a candidate.",
+      "properties": {
+        "type": {
+          "const": "position",
+          "default": "position",
+          "title": "Type",
+          "type": "string"
+        },
+        "fen": {
+          "title": "Fen",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "source": {
+          "$ref": "#/definitions/PositionSource"
+        },
+        "ply": {
+          "title": "Ply",
+          "type": "integer"
+        },
+        "moveUci": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Moveuci"
+        },
+        "moveSan": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Movesan"
+        },
+        "ts": {
+          "title": "Ts",
+          "type": "number"
+        }
+      },
+      "required": [
+        "fen",
+        "confidence",
+        "source",
+        "ply",
+        "ts"
+      ],
+      "title": "Position",
+      "type": "object"
+    },
+    "PositionSource": {
+      "enum": [
+        "initial",
+        "detector",
+        "manual"
+      ],
+      "title": "PositionSource",
+      "type": "string"
+    },
+    "SessionReady": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "sessionReady",
+          "default": "sessionReady",
+          "title": "Type",
+          "type": "string"
+        },
+        "sessionId": {
+          "title": "Sessionid",
+          "type": "string"
+        },
+        "protocolVersion": {
+          "title": "Protocolversion",
+          "type": "integer"
+        },
+        "engine": {
+          "$ref": "#/definitions/EngineInfo"
+        },
+        "resumed": {
+          "default": false,
+          "title": "Resumed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sessionId",
+        "protocolVersion",
+        "engine"
+      ],
+      "title": "SessionReady",
+      "type": "object"
+    },
+    "SessionStatus": {
+      "description": "What the pipeline is currently able to tell the user.\n\nThe client renders each of these distinctly. ``UNCLEAR`` exists so we can say\n\"I don't know\" instead of showing a confident evaluation for a position we are\nnot sure about -- showing stale or guessed analysis is worse than showing none.",
+      "enum": [
+        "calibrating",
+        "tracking",
+        "unclear",
+        "no_board",
+        "low_light",
+        "paused"
+      ],
+      "title": "SessionStatus",
+      "type": "string"
+    },
+    "State": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "state",
+          "default": "state",
+          "title": "Type",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/SessionStatus"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "State",
+      "type": "object"
+    },
+    "ServerMessage": {
+      "discriminator": {
+        "mapping": {
+          "error": "#/definitions/Error",
+          "eval": "#/definitions/Eval",
+          "pong": "#/definitions/Pong",
+          "position": "#/definitions/Position",
+          "sessionReady": "#/definitions/SessionReady",
+          "state": "#/definitions/State"
+        },
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/SessionReady"
+        },
+        {
+          "$ref": "#/definitions/Position"
+        },
+        {
+          "$ref": "#/definitions/Eval"
+        },
+        {
+          "$ref": "#/definitions/State"
+        },
+        {
+          "$ref": "#/definitions/Error"
+        },
+        {
+          "$ref": "#/definitions/Pong"
+        }
+      ]
+    },
+    "FrameHeader": {
+      "additionalProperties": false,
+      "description": "Metadata packed into the binary frame alongside the JPEG payload.",
+      "properties": {
+        "seq": {
+          "title": "Seq",
+          "type": "integer"
+        },
+        "captureTs": {
+          "title": "Capturets",
+          "type": "number"
+        },
+        "motion": {
+          "default": false,
+          "title": "Motion",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "captureTs"
+      ],
+      "title": "FrameHeader",
+      "type": "object"
+    }
+  }
+}
