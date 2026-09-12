@@ -168,7 +168,7 @@ def create_app(
     detector_factory = detector_factory or _build_detector_factory(vision_config)
     pool = pool or EnginePool(engine_config or EngineConfig.from_env())
     registry = SessionRegistry(vision_config.session_ttl_seconds)
-    limit_config = limits or LimitConfig()
+    limit_config = limits or LimitConfig.from_env()
     clients = ClientLimiter(limit_config)
     # Flipped on shutdown so in-flight sessions can be told what is happening
     # instead of having the socket vanish under them.

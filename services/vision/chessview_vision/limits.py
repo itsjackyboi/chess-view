@@ -22,15 +22,33 @@ before it is not.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections import deque
 from dataclasses import dataclass, field
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, default))
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, default))
+    except ValueError:
+        return default
 
 log = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
 class LimitConfig:
+    """Tunable per deployment: the right values depend on the pool size and on
+    whether clients arrive from distinct addresses or behind shared NAT."""
+
     # An engine lease each, so this is the per-client share of the pool.
     max_sessions_per_client: int = 3
     # The client bursts to 5 fps on motion; this leaves headroom for retries and
@@ -39,6 +57,14 @@ class LimitConfig:
     # Frames above the sustained rate tolerated in a burst, so a legitimate motion
     # burst is never punished.
     frame_burst: int = 24
+
+    @classmethod
+    def from_env(cls) -> "LimitConfig":
+        return cls(
+            max_sessions_per_client=_env_int("CHESSVIEW_MAX_SESSIONS_PER_CLIENT", 3),
+            max_frames_per_second=_env_float("CHESSVIEW_MAX_FPS", 12.0),
+            frame_burst=_env_int("CHESSVIEW_FRAME_BURST", 24),
+        )
 
 
 class TokenBucket:

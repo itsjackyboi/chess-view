@@ -4,7 +4,6 @@
 
 - Set up the project as a monorepo with separate services for vision and analysis.
 - Created the shared message format that all parts use to talk to each other.
-- Tested that Python and TypeScript both read and write the format the same way.
 - Built a pool of chess engines where each session gets its own.
 - Made the engines send evaluations as they compute, not waiting until done.
 - Fixed scores to always show things from white's perspective.
@@ -14,23 +13,29 @@
 - Made the app automatically reconnect with smart backoff logic.
 - Added CI that catches when Python and TypeScript drift out of sync.
 
-## M1 — Not started
+## M1 — Done
 
-## M2 — In progress
+- Validated the whole pipeline end-to-end from camera to analysis display.
+
+## M2 — Done
 
 - Built a two-stage vision pipeline: detect the board, then classify each square.
-- Trained a neural network on computer-generated chess board images.
-- Achieves 95% accuracy on whole boards from training data (not real photos yet).
-- Model is tiny (33 KB) and uses only onnxruntime at runtime, not PyTorch.
-- Reports confidence as the weakest square, not the average.
+- Trained a neural network on 1500 computer-generated chess board images.
+- Achieves 98% accuracy on whole boards with manual corner alignment (synthetic images only, not real photos).
+- Only gets 79% accuracy when the computer detects the board corners itself.
+- Model is 826 KB and uses only onnxruntime at runtime, not PyTorch.
+- Can tell when it is unsure and stays quiet instead of showing wrong answers.
 
 ## M3 — In progress
 
 - Added four draggable corner markers for precise board alignment.
-- Manual corners are the primary path; automatic detection is a starting guess.
-- Validates corners before accepting them to prevent bad warps.
+- Manual corners get 98% accuracy; automatic detection only gets 79%.
+- Tracks corners across frames with smoothing to prevent hand shake from causing jitter.
+- Validates corners and asks for recalibration if they stay rejected.
 
-## M4 — Not started
+## M4 — Done
+
+- Added a command-line tool that reads chess boards from pictures and outputs analysis.
 
 ## M5 — Done
 
@@ -41,5 +46,15 @@
 ## M6 — Done
 
 - Containerized the server with automatic TLS for secure mobile connections.
-- Stripped PyTorch from the runtime image to keep it small.
-- Health check exercises the engine pool and model to catch real problems.
+- Added rate limiting to prevent one user from flooding the engine pool.
+- Added health metrics and monitoring so problems are visible.
+- Shuts down gracefully instead of cutting off active sessions mid-game.
+- Added protection against malicious images designed to crash the server.
+- Packaged and ready to deploy, but not yet running online.
+
+## What's Left
+
+- Train the model on real photographs of chess boards, not just computer-generated images.
+- Add phone-specific code to crop and align the board efficiently on the device.
+- Test the app on actual phones to find real-world problems.
+- Deploy the server to a real online host.

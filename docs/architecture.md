@@ -116,6 +116,30 @@ toward an elevated angle during calibration.
   device identifier.
 - **Model-improvement capture is opt-in and off by default.**
 
+## Measured under concurrency (M6)
+
+`services/vision/loadtest.py` against a running service — pool of 3 engines, one
+thread each, six clients opening sessions at once so the pool is fully saturated:
+
+| | |
+|---|---|
+| Sessions served | 3 of 6 |
+| Sessions refused at capacity | 3 — cleanly, with a reason |
+| Sessions failed | 0 |
+| **Move → first evaluation (median)** | **204 ms** |
+| Move → first evaluation (p95) | 713 ms |
+| Positions committed | 15, with zero resyncs and zero unclear |
+| Detection confidence (p05 / p50) | 0.877 / 0.943 |
+
+Two things this establishes that single-session tests cannot. The latency budget
+holds under contention: a move still reaches the client with analysis well inside the
+one-second target when every engine is busy. And the pool refuses work rather than
+degrading — the clients that could not be served were told so and none failed, which
+is the behaviour a load balancer needs in order to route around a full instance.
+
+Engine leases were all returned afterwards (`activeSessions` back to zero), so
+saturation does not leak capacity.
+
 ## Untrusted input
 
 The largest untrusted surface is the decode path: arbitrary bytes from the internet

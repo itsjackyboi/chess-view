@@ -7,7 +7,7 @@ PIP := .venv/bin/pip
 # installed package.
 VISION := PYTHONPATH=services/vision
 
-.PHONY: help setup protocol protocol-check test test-protocol test-engine test-vision test-app typecheck run-vision bench evaluate train demo clean
+.PHONY: help setup protocol protocol-check test test-protocol test-engine test-vision test-app typecheck run-vision bench evaluate train loadtest demo clean
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -55,6 +55,9 @@ evaluate: ## Measure vision accuracy, per-square and board-level
 train: ## Retrain the square classifier (~30 min on 4 CPU cores)
 	$(VISION) $(PY) services/vision/training/train.py \
 		--train-boards 1500 --epochs 14 --out models/square-classifier.onnx
+
+loadtest: ## Drive concurrent sessions at a running service (needs make run-vision)
+	$(VISION) $(PY) services/vision/loadtest.py
 
 demo: ## Run the whole pipeline over one image: make demo IMAGE=board.jpg
 	@test -n "$(IMAGE)" || (echo "usage: make demo IMAGE=path/to/board.jpg" && exit 1)
