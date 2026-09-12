@@ -35,7 +35,12 @@ jobs:
           python -m venv .venv
           .venv/bin/pip install --upgrade pip
           .venv/bin/pip install -e packages/protocol -e services/engine -e services/vision
-          .venv/bin/pip install pytest pytest-asyncio uvicorn websockets httpx
+          # Headless OpenCV: the full package pulls in GUI libraries a runner has
+          # no use for. onnxruntime is the inference path; torch is training-only
+          # and deliberately not installed here.
+          .venv/bin/pip install \
+            pytest pytest-asyncio uvicorn websockets httpx \
+            "opencv-python-headless>=4.10" "onnxruntime>=1.19"
           npm ci
 
       - name: Check the generated protocol is current
@@ -44,7 +49,18 @@ jobs:
         run: npm run protocol:check
 
       - name: Python tests
+        # The classifier is committed, so the detector tests run rather than skip.
+        env:
+          CHESSVIEW_MODEL: models/square-classifier.onnx
         run: .venv/bin/python -m pytest -q
+
+      - name: Vision accuracy regression
+        # A small run: this catches a pipeline that has broken outright, not a
+        # model that has drifted a little. The full measurement is a manual step
+        # before shipping a new model (see infra/README.md).
+        run: |
+          PYTHONPATH=services/vision .venv/bin/python services/vision/evaluate.py \
+            --model models/square-classifier.onnx --boards 40 --skip-detection
 
       - name: App tests
         run: npm test --workspace @chessview/app

@@ -7,11 +7,11 @@ pipeline is deliberately never step one.
 |---|---|---|---|
 | **M0** | Skeleton, protocol, **stub detector** replaying scripted FENs | Real device: camera → WSS → engine → overlay under 1 s, no ML involved | **done** (pending device run) |
 | **M1** | Engine service — Stockfish pool, MultiPV 3, progressive depth | p95 first eval < 150 ms, stable under concurrent sessions | |
-| **M2** | **Single still image → FEN** — corners, rectify, classify, accuracy harness | Measured board-level accuracy on our own labelled test set | |
-| **M3** | Calibration UI, on-device homography + optical flow, motion gating | Board crop stays locked through hand shake; uplink ≈ 15 MB/hr | |
-| **M4** | Temporal engine — square diff, legal-move matcher, stability, confidence gate | Move recognition accuracy over a full recorded game | |
-| **M5** | Hardening — reconnect, degraded states, 2D correction board, battery/background | Both platforms on physical hardware | |
-| **M6** | Deploy, monitoring, design pass, store prerequisites | Reachable over the internet with no dev machine in the loop | |
+| **M2** | **Single still image → FEN** — corners, rectify, classify, accuracy harness | Measured board-level accuracy on our own labelled test set | **done on synthetic**; real photos outstanding |
+| **M3** | Calibration UI, on-device homography + optical flow, motion gating | Board crop stays locked through hand shake; uplink ≈ 15 MB/hr | partly — UI and maths done, native warp outstanding |
+| **M4** | Temporal engine — square diff, legal-move matcher, stability, confidence gate | Move recognition accuracy over a full recorded game | **done** (built early at M0.3) |
+| **M5** | Hardening — reconnect, degraded states, 2D correction board, battery/background | Both platforms on physical hardware | **done** (pending device run) |
+| **M6** | Deploy, monitoring, design pass, store prerequisites | Reachable over the internet with no dev machine in the loop | **config done**, not yet deployed |
 
 ## M0 status
 
@@ -27,14 +27,37 @@ Two things remain before M0 can be called finished outright:
 - **Deployment.** The services run locally. M6 covers putting them somewhere the app
   can reach, which needs the hosting decisions in docs/architecture.md settled.
 
-## M2 is the go/no-go gate
+## M2 gate: passed on synthetic, unproven on real photos
 
-Its measured accuracy decides whether M4 is a tuning exercise or a research project.
-Better to learn that in week two against a test harness than in week eight against a
-camera.
+The gate was meant to decide whether M4 was a tuning exercise or a research project.
+On synthetic data the pipeline reaches **99.3% board-level accuracy with calibrated
+corners** and the confidence gate cleanly separates correct readings (0.916) from
+incorrect ones (0.429). Full figures in [vision.md](vision.md).
 
-M0's stub detector exists precisely so the whole product is provably working
-end-to-end *before* the ML risk lands.
+That is a genuine held-out measurement and it says the *pipeline* is sound. It does
+not say the model will work on photographs of real chess sets, and it should never be
+quoted as though it did — rendered pieces are cleaner, better lit and more consistent
+than wood under a kitchen lamp.
+
+**So the remaining M2 risk is entirely a dataset problem.** Photographs of real
+boards, across several chess sets and lighting conditions, with labels. Everything
+that consumes them is built and measured.
+
+M0's stub detector existed so the whole product was provably working end-to-end
+before the ML risk landed, which is why swapping the real model in was a
+configuration change.
+
+## What is actually outstanding
+
+1. **Real photographs.** The dataset gap above. The single biggest risk.
+2. **The on-device warp.** Needs a native frame-processor plugin. Until it exists the
+   client sends downscaled full frames and the server rectifies — which works, but the
+   bandwidth and privacy properties in [architecture.md](architecture.md) are targets
+   rather than facts.
+3. **A run on physical hardware.** Camera lifecycle, thermals and real network
+   behaviour are invisible to the test suite.
+4. **Deployment.** The config exists; nothing is running anywhere yet. Blocked on
+   choosing a hosting region.
 
 ## Real-device testing from M0
 
