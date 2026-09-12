@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install Stockfish
+        # Integration tests drive a real engine rather than a mock: progressive
+        # arrival, clean cancellation and perspective-correct scores only show up
+        # against the real thing. Debian installs to /usr/games, which is not on
+        # PATH for a non-login shell.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y stockfish
+          echo "CHESSVIEW_STOCKFISH=/usr/games/stockfish" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -e packages/protocol -e services/engine -e services/vision
+          .venv/bin/pip install pytest pytest-asyncio uvicorn websockets httpx
+          npm ci
+
+      - name: Check the generated protocol is current
+        # The pydantic models are the source of truth; the TypeScript the client
+        # imports is generated from them. This is what stops the two ends drifting.
+        run: npm run protocol:check
+
+      - name: Python tests
+        run: .venv/bin/python -m pytest -q
+
+      - name: App tests
+        run: npm test --workspace @chessview/app
+
+      - name: Typecheck
+        run: npm run typecheck

@@ -5,13 +5,27 @@ pipeline is deliberately never step one.
 
 | # | Milestone | Exit criteria | Status |
 |---|---|---|---|
-| **M0** | Skeleton, protocol, **stub detector** replaying scripted FENs | Real device: camera → WSS → engine → overlay under 1 s, no ML involved | in progress |
+| **M0** | Skeleton, protocol, **stub detector** replaying scripted FENs | Real device: camera → WSS → engine → overlay under 1 s, no ML involved | **done** (pending device run) |
 | **M1** | Engine service — Stockfish pool, MultiPV 3, progressive depth | p95 first eval < 150 ms, stable under concurrent sessions | |
 | **M2** | **Single still image → FEN** — corners, rectify, classify, accuracy harness | Measured board-level accuracy on our own labelled test set | |
 | **M3** | Calibration UI, on-device homography + optical flow, motion gating | Board crop stays locked through hand shake; uplink ≈ 15 MB/hr | |
 | **M4** | Temporal engine — square diff, legal-move matcher, stability, confidence gate | Move recognition accuracy over a full recorded game | |
 | **M5** | Hardening — reconnect, degraded states, 2D correction board, battery/background | Both platforms on physical hardware | |
 | **M6** | Deploy, monitoring, design pass, store prerequisites | Reachable over the internet with no dev machine in the loop | |
+
+## M0 status
+
+Built and green in CI: protocol, engine service, vision service, tracking, and the
+client, with 170 tests across Python and TypeScript. The pipeline is proven
+end-to-end through a real WebSocket against a real Stockfish, with only the detector
+stubbed.
+
+Two things remain before M0 can be called finished outright:
+
+- **A run on physical hardware.** Everything except the camera path is covered by
+  tests; the camera path cannot be. This is the one exit criterion still open.
+- **Deployment.** The services run locally. M6 covers putting them somewhere the app
+  can reach, which needs the hosting decisions in docs/architecture.md settled.
 
 ## M2 is the go/no-go gate
 
